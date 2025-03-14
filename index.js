@@ -59,6 +59,19 @@ function toggleInspectNext() {
     localStorage.setItem('promptInspectorEnabled', String(inspectEnabled));
 }
 
+// Helper function to format JSON with line breaks instead of \n
+function formatJsonWithLineBreaks(json) {
+    const stringified = JSON.stringify(json, null, 4);
+    return stringified.replace(/\\n/g, '\n');
+}
+
+// Helper function to parse JSON that might have actual line breaks
+function parseJsonWithLineBreaks(jsonStr) {
+    // Convert actual line breaks back to \n for proper JSON parsing
+    const preparedJson = jsonStr.replace(/\n(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\\n');
+    return JSON.parse(preparedJson);
+}
+
 eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY, async (data) => {
     if (!inspectEnabled) {
         return;
@@ -74,7 +87,8 @@ eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY, async (data) => {
         return;
     }
 
-    const promptJson = JSON.stringify(data.chat, null, 4);
+    // Use the new formatting function
+    const promptJson = formatJsonWithLineBreaks(data.chat);
     const result = await showPromptInspector(promptJson);
 
     if (result === promptJson) {
@@ -83,7 +97,8 @@ eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY, async (data) => {
     }
 
     try {
-        const chat = JSON.parse(result);
+        // Use the special parsing function
+        const chat = parseJsonWithLineBreaks(result);
 
         // Chat is passed by reference, so we can modify it directly
         if (Array.isArray(chat) && Array.isArray(data.chat)) {
@@ -92,7 +107,7 @@ eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY, async (data) => {
 
         console.debug('Prompt Inspector: Prompt updated');
     } catch (e) {
-        console.error('Prompt Inspector: Invalid JSON');
+        console.error('Prompt Inspector: Invalid JSON', e);
         toastr.error('Invalid JSON');
     }
 });
@@ -108,7 +123,7 @@ eventSource.on(event_types.GENERATE_AFTER_COMBINE_PROMPTS, async (data) => {
     }
 
     if (isChatCompletion()) {
-        console.debug('Prompt Inspector: Not a chat completion prompt');
+        console.debug('Prompt Inspector: Not a legacy prompt');
         return;
     }
 
